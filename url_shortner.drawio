@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="Electron" modified="2026-07-31T15:30:00.000Z" agent="Codex" version="31.0.2" type="device" compressed="false">
+  <diagram id="simple-url-shortener" name="Simple URL Shortener System Design">
+    <mxGraphModel dx="2400" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Simple URL Shortener — One-Page System Design" style="whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=30;fontStyle=1;fontColor=#172B4D;align=left;" vertex="1" parent="1">
+          <mxGeometry x="60" y="25" width="2100" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Scope: create a short URL and redirect it reliably. Analytics and custom aliases are excluded." style="whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;fontSize=15;fontColor=#5E6C84;align=left;" vertex="1" parent="1">
+          <mxGeometry x="60" y="72" width="2100" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="functional" value="&lt;b&gt;FUNCTIONAL REQUIREMENTS&lt;/b&gt;&#xa;&#xa;1. Accept and validate an HTTP/HTTPS long URL.&#xa;2. Generate a unique, opaque 8-character code.&#xa;3. Persist code → long URL before returning success.&#xa;4. Return the complete short URL to the client.&#xa;5. Redirect a known code using HTTP 302.&#xa;6. Return 404 for an unknown code.&#xa;7. Make creation retries safe using Idempotency-Key." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#172B4D;fontSize=14;spacing=16;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="60" y="125" width="500" height="305" as="geometry"/>
+        </mxCell>
+        <mxCell id="nonfunctional" value="&lt;b&gt;NON-FUNCTIONAL REQUIREMENTS&lt;/b&gt;&#xa;&#xa;• Redirect p99 &lt; 100 ms on a regional cache hit.&#xa;• Creation p99 &lt; 300 ms.&#xa;• 99.99% redirect availability target.&#xa;• No acknowledged mapping is lost.&#xa;• Immediate read-after-write after creation.&#xa;• Horizontally scalable stateless services.&#xa;• TLS, rate limiting and abuse protection.&#xa;• Metrics, tracing, backups and tested failover." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=14;spacing=16;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="590" y="125" width="540" height="305" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="estimate-box" value="BACK-OF-THE-ENVELOPE ESTIMATION" style="swimlane=1;horizontal=1;startSize=38;rounded=1;html=1;fillColor=#FAFBFC;swimlaneFillColor=#172B4D;strokeColor=#172B4D;strokeWidth=2;fontColor=#FFFFFF;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="125" width="1180" height="305" as="geometry"/>
+        </mxCell>
+        <mxCell id="traffic-est" value="&lt;b&gt;TRAFFIC&lt;/b&gt;&#xa;&#xa;100M new URLs/month&#xa;100 redirects per creation&#xa;10× peak factor&#xa;&#xa;&lt;b&gt;Average:&lt;/b&gt; 39 writes/s, 3.9K reads/s&#xa;&lt;b&gt;Peak:&lt;/b&gt; 390 writes/s, 38.6K reads/s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#172B4D;fontSize=13;spacing=12;align=left;verticalAlign=top;" vertex="1" parent="estimate-box">
+          <mxGeometry x="20" y="60" width="270" height="215" as="geometry"/>
+        </mxCell>
+        <mxCell id="storage-est" value="&lt;b&gt;STORAGE&lt;/b&gt;&#xa;&#xa;5 years = 6B mappings&#xa;~500 B per mapping&#xa;&lt;b&gt;3 TB raw&lt;/b&gt;&#xa;&lt;b&gt;9 TB with 3 copies&lt;/b&gt;&#xa;Plan ~12 TB with 30% headroom" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#172B4D;fontSize=13;spacingTop=16;" vertex="1" parent="estimate-box">
+          <mxGeometry x="315" y="55" width="260" height="225" as="geometry"/>
+        </mxCell>
+        <mxCell id="cache-est" value="&lt;b&gt;CACHE&lt;/b&gt;&#xa;&#xa;100M hot mappings&#xa;≈ 50 GB raw&#xa;≈ 80–100 GB with overhead&#xa;Replicate across Redis nodes&#xa;Target cache hit rate ≥ 95%" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFF4E5;strokeColor=#FFAB00;fontColor=#172B4D;fontSize=13;spacingTop=16;" vertex="1" parent="estimate-box">
+          <mxGeometry x="600" y="55" width="260" height="225" as="geometry"/>
+        </mxCell>
+        <mxCell id="server-est" value="&lt;b&gt;SERVER ESTIMATE&lt;/b&gt;&#xa;&#xa;Redirect node capacity assumption: 5K RPS&#xa;38.6K / 5K ≈ 8 nodes&#xa;Deploy 10 per region for failover headroom&#xa;&#xa;Create path: 3 nodes per region&#xa;DB: 8 logical shards × 3 copies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAE6FF;strokeColor=#6554C0;fontColor=#172B4D;fontSize=13;spacing=12;align=left;verticalAlign=top;" vertex="1" parent="estimate-box">
+          <mxGeometry x="885" y="60" width="275" height="215" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="api-box" value="API METHODS AND ENDPOINTS" style="swimlane=1;horizontal=1;startSize=38;rounded=1;html=1;fillColor=#FAFBFC;swimlaneFillColor=#4C9AFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#FFFFFF;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="465" width="1070" height="335" as="geometry"/>
+        </mxCell>
+        <mxCell id="post-api" value="&lt;b&gt;POST /v1/urls&lt;/b&gt;&#xa;&#xa;Header: Idempotency-Key: optional&#xa;Body: { &amp;quot;longUrl&amp;quot;: &amp;quot;https://example.com/path&amp;quot; }&#xa;&#xa;&lt;b&gt;201 Created&lt;/b&gt;&#xa;{ &amp;quot;code&amp;quot;: &amp;quot;g7K2pQ9x&amp;quot;,&#xa;  &amp;quot;shortUrl&amp;quot;: &amp;quot;https://sho.rt/g7K2pQ9x&amp;quot; }&#xa;&#xa;400 invalid · 413 too long · 429 limited · 503 unavailable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#172B4D;fontSize=13;fontFamily=Consolas;spacing=14;align=left;verticalAlign=top;" vertex="1" parent="api-box">
+          <mxGeometry x="20" y="58" width="550" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="get-api" value="&lt;b&gt;GET /{code}&lt;/b&gt;&#xa;&#xa;&lt;b&gt;302 Found&lt;/b&gt;&#xa;Location: https://example.com/path&#xa;Cache-Control: public, max-age=300&#xa;&#xa;404 Not Found — unknown code&#xa;410 Gone — disabled/expired link&#xa;&#xa;&lt;b&gt;HEAD /{code}&lt;/b&gt;&#xa;Optional lightweight existence/redirect check." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#172B4D;fontSize=13;fontFamily=Consolas;spacing=14;align=left;verticalAlign=top;" vertex="1" parent="api-box">
+          <mxGeometry x="600" y="58" width="445" height="250" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="db-box" value="DATABASE STRUCTURE" style="swimlane=1;horizontal=1;startSize=38;rounded=1;html=1;fillColor=#FAFBFC;swimlaneFillColor=#36B37E;strokeColor=#36B37E;strokeWidth=2;fontColor=#FFFFFF;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="465" width="1180" height="335" as="geometry"/>
+        </mxCell>
+        <mxCell id="mapping-table" value="&lt;b&gt;URL_MAPPING&lt;/b&gt;&#xa;────────────────────────────&#xa;code         CHAR(8)      PRIMARY KEY&#xa;long_url     TEXT         NOT NULL&#xa;created_at   TIMESTAMP    NOT NULL&#xa;status       SMALLINT     DEFAULT 1&#xa;url_hash     BINARY       optional&#xa;&#xa;Shard key: hash(code)&#xa;Invariant: one code → one long URL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E3FCEF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;fontFamily=Consolas;spacingTop=20;spacingLeft=12;align=left;" vertex="1" parent="db-box">
+          <mxGeometry x="25" y="55" width="460" height="255" as="geometry"/>
+        </mxCell>
+        <mxCell id="idempotency-table" value="&lt;b&gt;IDEMPOTENCY_RECORD&lt;/b&gt;&#xa;────────────────────────&#xa;idempotency_key  VARCHAR  PK&#xa;code             CHAR(8)&#xa;request_hash     BINARY&#xa;created_at       TIMESTAMP&#xa;expires_at       TIMESTAMP&#xa;&#xa;Prevents duplicate links on client retry." style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#172B4D;fontSize=13;fontFamily=Consolas;spacingTop=18;spacingLeft=12;align=left;" vertex="1" parent="db-box">
+          <mxGeometry x="515" y="65" width="330" height="235" as="geometry"/>
+        </mxCell>
+        <mxCell id="key-pool-table" value="&lt;b&gt;KEY POOL&lt;/b&gt;&#xa;&#xa;8-char Base62 codes&#xa;unused → leased → used&#xa;atomic batch leases&#xa;UNIQUE(code) guard&#xa;&#xa;62⁸ ≈ 218 trillion keys" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#EAE6FF;strokeColor=#6554C0;fontColor=#172B4D;fontSize=13;spacingTop=18;" vertex="1" parent="db-box">
+          <mxGeometry x="875" y="65" width="280" height="235" as="geometry"/>
+        </mxCell>
+        <mxCell id="db-rel1" value="returns code" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#4C9AFF;fontSize=11;" edge="1" parent="db-box" source="idempotency-table" target="mapping-table">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="db-rel2" value="leased code" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#6554C0;fontSize=11;" edge="1" parent="db-box" source="key-pool-table" target="mapping-table">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="arch-box" value="PRODUCTION ARCHITECTURE — CREATE AND REDIRECT PATHS" style="swimlane=1;horizontal=1;startSize=42;rounded=1;html=1;fillColor=#FAFBFC;swimlaneFillColor=#172B4D;strokeColor=#172B4D;strokeWidth=2;fontColor=#FFFFFF;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="840" width="2280" height="680" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="client" value="Client" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=14;fontColor=#172B4D;" vertex="1" parent="arch-box">
+          <mxGeometry x="25" y="230" width="75" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="dns-cdn" value="&lt;b&gt;DNS + CDN&lt;/b&gt;&#xa;resolve healthy edge&#xa;cache hot 302 responses" style="shape=cloud;whiteSpace=wrap;html=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#172B4D;fontSize=13;" vertex="1" parent="arch-box">
+          <mxGeometry x="145" y="205" width="255" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="waf" value="&lt;b&gt;WAF + RATE LIMITER&lt;/b&gt;&#xa;TLS · DDoS protection&#xa;validation · quotas" style="shape=mxgraph.basic.shield;whiteSpace=wrap;html=1;fillColor=#FFEBE6;strokeColor=#FF5630;fontColor=#172B4D;fontSize=12;" vertex="1" parent="arch-box">
+          <mxGeometry x="450" y="175" width="220" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="lb" value="&lt;b&gt;L7 LOAD BALANCER&lt;/b&gt;&#xa;POST → create&#xa;GET → redirect&#xa;health checks" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#172B4D;fontSize=13;" vertex="1" parent="arch-box">
+          <mxGeometry x="725" y="200" width="230" height="160" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="create-service" value="&lt;b&gt;CREATE SERVICE POOL&lt;/b&gt;&#xa;validate URL&#xa;consume unique key&#xa;commit mapping&#xa;warm cache after commit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=13;" vertex="1" parent="arch-box">
+          <mxGeometry x="1020" y="80" width="270" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="redirect-service" value="&lt;b&gt;REDIRECT SERVICE POOL&lt;/b&gt;&#xa;validate code&#xa;cache-aside lookup&#xa;return 302 Location&#xa;fail open to database" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=13;" vertex="1" parent="arch-box">
+          <mxGeometry x="1020" y="315" width="270" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="kgs" value="&lt;b&gt;KEY GENERATOR&lt;/b&gt;&#xa;pre-generated unique&#xa;8-char Base62 codes&#xa;batch leases" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#EAE6FF;strokeColor=#6554C0;strokeWidth=2;fontColor=#172B4D;fontSize=12;" vertex="1" parent="arch-box">
+          <mxGeometry x="1370" y="70" width="240" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="redis" value="&lt;b&gt;REDIS CLUSTER&lt;/b&gt;&#xa;code → long URL&#xa;TTL + jitter&#xa;replicas&#xa;short negative caching" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFF4E5;strokeColor=#FFAB00;strokeWidth=2;fontColor=#172B4D;fontSize=13;" vertex="1" parent="arch-box">
+          <mxGeometry x="1370" y="310" width="240" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="shard-router" value="&lt;b&gt;SHARD ROUTER&lt;/b&gt;&#xa;consistent hash(code)&#xa;virtual nodes" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#172B4D;fontSize=12;" vertex="1" parent="arch-box">
+          <mxGeometry x="1690" y="225" width="230" height="180" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="shards" value="SHARDED URL MAPPING STORE" style="swimlane=1;horizontal=1;startSize=32;rounded=1;html=1;fillColor=#FAFBFC;swimlaneFillColor=#E3FCEF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;fontStyle=1;" vertex="1" parent="arch-box">
+          <mxGeometry x="1970" y="105" width="285" height="400" as="geometry"/>
+        </mxCell>
+        <mxCell id="shard0" value="&lt;b&gt;SHARD 0&lt;/b&gt;&#xa;primary + 2 replicas" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#172B4D;fontSize=12;" vertex="1" parent="shards">
+          <mxGeometry x="35" y="55" width="215" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="shard1" value="&lt;b&gt;SHARD 1&lt;/b&gt;&#xa;primary + 2 replicas" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#172B4D;fontSize=12;" vertex="1" parent="shards">
+          <mxGeometry x="35" y="165" width="215" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="shardn" value="&lt;b&gt;SHARD N&lt;/b&gt;&#xa;primary + 2 replicas" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#172B4D;fontSize=12;" vertex="1" parent="shards">
+          <mxGeometry x="35" y="275" width="215" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge1" value="1 · HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#4C9AFF;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="client" target="dns-cdn">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge2" value="edge miss / create" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6554C0;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="dns-cdn" target="waf">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge3" value="allowed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#4C9AFF;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="waf" target="lb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge4" value="POST /v1/urls" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#4C9AFF;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="lb" target="create-service">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge5" value="GET /{code}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#36B37E;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="lb" target="redirect-service">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge6" value="lease key batch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#6554C0;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="create-service" target="kgs">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge7" value="cache lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#FFAB00;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="redirect-service" target="redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge8" value="commit / cache miss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#4C9AFF;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="create-service" target="shard-router">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1650" y="165"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="edge9" value="miss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#36B37E;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="redirect-service" target="shard-router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge10" value="route by code" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#36B37E;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="shard-router" target="shards">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge11" value="warm after commit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#FFAB00;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="create-service" target="redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="edge12" value="302 Location" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#36B37E;strokeWidth=2;fontSize=11;" edge="1" parent="arch-box" source="redirect-service" target="client">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="980" y="545"/><mxPoint x="65" y="545"/></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="architecture-note" value="&lt;b&gt;Core behavior:&lt;/b&gt; The create path obtains a unique code, commits the mapping, then warms Redis before returning 201. The read-heavy redirect path checks CDN/Redis first and reaches the sharded database only on a cache miss. Cache failure falls back to the durable store; database uniqueness remains the final collision guard." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F5F7;strokeColor=#7A869A;fontColor=#172B4D;fontSize=13;spacing=14;align=left;verticalAlign=middle;" vertex="1" parent="arch-box">
+          <mxGeometry x="130" y="570" width="2040" height="75" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
